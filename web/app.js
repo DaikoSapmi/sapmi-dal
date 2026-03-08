@@ -1,4 +1,5 @@
 const BREAKING_KEY = 'sami-news-last-top-url';
+const SETTINGS_KEY = 'sapmi-dal-settings-v1';
 
 function fmtDate(iso) {
   if (!iso) return 'amas áigi';
@@ -50,6 +51,86 @@ function renderGrid(el, items) {
 
 function bySource(items, list) {
   return items.filter(i => list.includes(i.source));
+}
+
+function loadSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveSettings(s) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+}
+
+function applySettings(items, settings) {
+  const enabled = settings.enabledSources || {};
+  const hasEnabled = Object.keys(enabled).length > 0;
+  const limits = settings.perSourceLimit || {};
+
+  const filtered = items.filter(i => !hasEnabled || enabled[i.source] !== false);
+  const seen = {};
+  const out = [];
+  for (const item of filtered) {
+    const src = item.source || 'Eará';
+    const lim = Number(limits[src]);
+    const max = Number.isFinite(lim) && lim > 0 ? lim : Infinity;
+    seen[src] = (seen[src] || 0);
+    if (seen[src] >= max) continue;
+    seen[src] += 1;
+    out.push(item);
+  }
+  return out;
+}
+
+function renderSettingsPanel(sources) {
+  const wrap = document.getElementById('settingsSources');
+  const settings = loadSettings();
+  const enabled = settings.enabledSources || {};
+  const limits = settings.perSourceLimit || {};
+
+  wrap.innerHTML = sources.map(src => {
+    const checked = enabled[src] !== false;
+    const val = limits[src] || '';
+    return `<label class="settings-row">
+      <span><input type="checkbox" data-source="${src}" ${checked ? 'checked' : ''}/> ${src}</span>
+      <input type="number" min="1" step="1" data-limit="${src}" value="${val}" placeholder="buot" />
+    </label>`;
+  }).join('');
+}
+
+function wireSettingsUI(sources) {
+  const btn = document.getElementById('settingsBtn');
+  const panel = document.getElementById('settingsPanel');
+  const close = document.getElementById('settingsClose');
+  const save = document.getElementById('settingsSave');
+  const reset = document.getElementById('settingsReset');
+
+  btn.onclick = () => {
+    renderSettingsPanel(sources);
+    panel.classList.toggle('hidden');
+  };
+  close.onclick = () => panel.classList.add('hidden');
+  reset.onclick = () => {
+    localStorage.removeItem(SETTINGS_KEY);
+    renderSettingsPanel(sources);
+  };
+  save.onclick = () => {
+    const enabledSources = {};
+    const perSourceLimit = {};
+    panel.querySelectorAll('[data-source]').forEach(el => {
+      enabledSources[el.dataset.source] = el.checked;
+    });
+    panel.querySelectorAll('[data-limit]').forEach(el => {
+      const v = (el.value || '').trim();
+      if (v) perSourceLimit[el.dataset.limit] = Number(v);
+    });
+    saveSettings({ enabledSources, perSourceLimit });
+    panel.classList.add('hidden');
+    load();
+  };
 }
 
 function topScore(item) {
@@ -123,7 +204,15 @@ async function load() {
   const res = await fetch('data/news.json?ts=' + Date.now());
   const data = await res.json();
   const allItems = data.items || [];
-  const items = allItems.filter(i => i.source !== 'Vow ASA');
+  const baseItems = allItems.filter(i => i.source !== 'Vow ASA');
+
+  const sources = [...new Set(baseItems.map(i => i.source).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if (!window.__settingsWired) {
+    wireSettingsUI(sources);
+    window.__settingsWired = true;
+  }
+
+  const items = applySettings(baseItems, loadSettings());
 
   const hero = document.getElementById('hero');
   const quick = document.getElementById('quick');
@@ -176,7 +265,7 @@ async function load() {
   renderGrid(suopmaGrid, suopma);
   renderGrid(ruossaGrid, ruossa);
 
-  updated.textContent = `Maŋimus ođasmahtton: ${fmtDate(data.updated_at)} · ${data.count} ášši`;
+  updated.textContent = `Maŋimus ođasmahtton: ${fmtDate(data.updated_at)} · ${items.length}/${data.count} ášši`;
 }
 
 load();
