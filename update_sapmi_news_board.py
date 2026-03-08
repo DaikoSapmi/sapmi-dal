@@ -10,14 +10,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent / 'web'
 DATA_PATH = ROOT / 'data' / 'news.json'
+CONFIG_PATH = ROOT / 'data' / 'config.json'
 
-SOURCES = [
-    ('NRK Sápmi', 'https://www.nrk.no/sapmi/oddasat.rss'),
-    ('Yle Sápmi', 'https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_SAPMI'),
-    ('SVT Norrbotten', 'https://www.svt.se/nyheter/lokalt/norrbotten/rss.xml'),
-    ('Ávvir', 'https://avvir.no/feed/'),
-    ('Ságat', 'https://www.sagat.no/atom.xml'),
-    ('Vow ASA', 'https://www.vowasa.com/feed/'),
+DEFAULT_SOURCES = [
+    {'name': 'NRK Sápmi', 'url': 'https://www.nrk.no/sapmi/oddasat.rss'},
+    {'name': 'Yle Sápmi', 'url': 'https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_SAPMI'},
+    {'name': 'SVT Norrbotten', 'url': 'https://www.svt.se/nyheter/lokalt/norrbotten/rss.xml'},
+    {'name': 'Ávvir', 'url': 'https://avvir.no/feed/'},
+    {'name': 'Ságat', 'url': 'https://www.sagat.no/atom.xml'},
 ]
 
 IMAGE_FALLBACK_SOURCES = {'Ávvir', 'SVT Norrbotten'}
@@ -104,7 +104,31 @@ def fallback_image_from_article(url: str) -> str:
         return ''
 
 
-def parse_feed(source: str, xml_text: str):
+def load_sources():
+    cfg = {}
+    if CONFIG_PATH.exists():
+        try:
+            cfg = json.loads(CONFIG_PATH.read_text(encoding='utf-8'))
+        except Exception:
+            cfg = {}
+
+    srcs = cfg.get('sources') or DEFAULT_SOURCES
+    normalized = []
+    for s in srcs:
+        name = (s.get('name') if isinstance(s, dict) else '') or ''
+        url = (s.get('url') if isinstance(s, dict) else '') or ''
+        max_items = (s.get('maxItems') if isinstance(s, dict) else None)
+        if name and url:
+            normalized.append({'name': name, 'url': url, 'maxItems': max_items})
+
+    if not CONFIG_PATH.exists():
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG_PATH.write_text(json.dumps({'sources': DEFAULT_SOURCES}, ensure_ascii=False, indent=2), encoding='utf-8')
+
+    return normalized
+
+
+def parse_feed(source: str, xml_text: str, max_items=None):
     items = []
     root = ET.fromstring(xml_text)
     ns = {
@@ -113,10 +137,15 @@ def parse_feed(source: str, xml_text: str):
         'media': 'http://search.yahoo.com/mrss/',
     }
 
+    limit = max_items if isinstance(max_items, int) and max_items > 0 else None
+
     # RSS
     channel = root.find('channel')
     if channel is not None:
-        for item in channel.findall('item')[:25]:
+        rss_items = channel.findall('item')
+        if limit:
+            rss_items = rss_items[:limit]
+        for item in rss_items:
             title = text_of(item, ['title'])
             link = text_of(item, ['link'])
             pub = text_of(item, ['pubDate', 'dc:date'])
@@ -135,7 +164,10 @@ def parse_feed(source: str, xml_text: str):
         return items
 
     # Atom
-    for entry in root.findall('atom:entry', ns)[:25] + root.findall('entry')[:25]:
+    atom_entries = root.findall('atom:entry', ns) + root.findall('entry')
+    if limit:
+        atom_entries = atom_entries[:limit]
+    for entry in atom_entries:
         title = text_of(entry, ['atom:title', 'title'])
         link = ''
         link_node = entry.find('atom:link', ns) or entry.find('link')
@@ -159,10 +191,14 @@ def parse_feed(source: str, xml_text: str):
 
 def main():
     all_items = []
-    for source, url in SOURCES:
+    sources = load_sources()
+    for src in sources:
+        source = src['name']
+        url = src['url']
+        max_items = src.get('maxItems')
         try:
             xml_text = fetch_xml(url)
-            all_items.extend(parse_feed(source, xml_text))
+            all_items.extend(parse_feed(source, xml_text, max_items=max_items))
         except Exception:
             continue
 

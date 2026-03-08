@@ -1,5 +1,13 @@
 const BREAKING_KEY = 'sami-news-last-top-url';
 const SETTINGS_KEY = 'sapmi-dal-settings-v1';
+let CONFIG_SOURCES = [];
+const DEFAULT_SOURCE_CONFIG = [
+  { name: 'NRK Sápmi', url: 'https://www.nrk.no/sapmi/oddasat.rss' },
+  { name: 'Yle Sápmi', url: 'https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_SAPMI' },
+  { name: 'SVT Norrbotten', url: 'https://www.svt.se/nyheter/lokalt/norrbotten/rss.xml' },
+  { name: 'Ávvir', url: 'https://avvir.no/feed/' },
+  { name: 'Ságat', url: 'https://www.sagat.no/atom.xml' }
+];
 
 function fmtDate(iso) {
   if (!iso) return 'amas áigi';
@@ -85,6 +93,28 @@ function applySettings(items, settings) {
   return out;
 }
 
+async function fetchConfigSources() {
+  try {
+    const r = await fetch('/api/config?ts=' + Date.now());
+    const c = await r.json();
+    CONFIG_SOURCES = (c.sources || []).filter(s => s && s.name && s.url);
+  } catch {
+    CONFIG_SOURCES = [];
+  }
+  if (!CONFIG_SOURCES.length) {
+    CONFIG_SOURCES = [...DEFAULT_SOURCE_CONFIG];
+    await saveConfigSources();
+  }
+}
+
+async function saveConfigSources() {
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sources: CONFIG_SOURCES })
+  });
+}
+
 function renderSettingsPanel(sources) {
   const wrap = document.getElementById('settingsSources');
   const settings = loadSettings();
@@ -98,7 +128,14 @@ function renderSettingsPanel(sources) {
       <span><input type="checkbox" data-source="${src}" ${checked ? 'checked' : ''}/> ${src}</span>
       <input type="number" min="1" step="1" data-limit="${src}" value="${val}" placeholder="buot" />
     </label>`;
-  }).join('');
+  }).join('') + `
+  <div class="settings-row" style="grid-template-columns:1fr;">
+    <strong>Ođđa RSS-gáldu</strong>
+    <input id="newSourceName" type="text" placeholder="Namma" />
+    <input id="newSourceUrl" type="text" placeholder="https://.../feed" />
+    <input id="newSourceLimit" type="number" min="1" step="1" placeholder="Ášši mearri (guorus = buot)" />
+    <button id="addSourceBtn">Lasit gáldu</button>
+  </div>`;
 }
 
 function wireSettingsUI(sources) {
@@ -111,13 +148,27 @@ function wireSettingsUI(sources) {
   btn.onclick = () => {
     renderSettingsPanel(sources);
     panel.classList.toggle('hidden');
+
+    const addBtn = document.getElementById('addSourceBtn');
+    if (addBtn) addBtn.onclick = async () => {
+      const n = document.getElementById('newSourceName').value.trim();
+      const u = document.getElementById('newSourceUrl').value.trim();
+      const l = document.getElementById('newSourceLimit').value.trim();
+      if (!n || !u) return;
+      const maxItems = l ? Number(l) : undefined;
+      CONFIG_SOURCES.push({ name: n, url: u, ...(maxItems ? { maxItems } : {}) });
+      await saveConfigSources();
+      panel.classList.add('hidden');
+      window.__settingsWired = false;
+      load();
+    };
   };
   close.onclick = () => panel.classList.add('hidden');
   reset.onclick = () => {
     localStorage.removeItem(SETTINGS_KEY);
     renderSettingsPanel(sources);
   };
-  save.onclick = () => {
+  save.onclick = async () => {
     const enabledSources = {};
     const perSourceLimit = {};
     panel.querySelectorAll('[data-source]').forEach(el => {
@@ -128,6 +179,19 @@ function wireSettingsUI(sources) {
       if (v) perSourceLimit[el.dataset.limit] = Number(v);
     });
     saveSettings({ enabledSources, perSourceLimit });
+
+    // persist maxItems to server config (blank = all)
+    const byName = Object.fromEntries((CONFIG_SOURCES || []).map(s => [s.name, s]));
+    CONFIG_SOURCES = Object.keys(enabledSources)
+      .filter(name => byName[name])
+      .map(name => {
+        const src = { ...byName[name] };
+        if (perSourceLimit[name]) src.maxItems = Number(perSourceLimit[name]);
+        else delete src.maxItems;
+        return src;
+      });
+    await saveConfigSources();
+
     panel.classList.add('hidden');
     load();
   };
@@ -206,7 +270,12 @@ async function load() {
   const allItems = data.items || [];
   const baseItems = allItems.filter(i => i.source !== 'Vow ASA');
 
-  const sources = [...new Set(baseItems.map(i => i.source).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  await fetchConfigSources();
+  const sources = [...new Set([
+    ...baseItems.map(i => i.source).filter(Boolean),
+    ...(CONFIG_SOURCES || []).map(s => s.name).filter(Boolean)
+  ])].sort((a,b)=>a.localeCompare(b));
+
   if (!window.__settingsWired) {
     wireSettingsUI(sources);
     window.__settingsWired = true;
