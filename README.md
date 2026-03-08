@@ -2,6 +2,10 @@
 
 Lokal, lettvekts nyhetsfront for samiske/Sápmi-relaterte kilder.
 
+## Skjermbilde
+
+![Sápmi dál – desktop](docs/screenshots/sapmi-dal-desktop.jpg)
+
 ## Hva den gjør
 
 - Henter RSS/Atom fra:
