@@ -1,0 +1,16 @@
+services:
+  sapmi-dal:
+    build: .
+    container_name: sapmi-dal
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    working_dir: /app
+    command: >
+      /bin/sh -lc '
+      while true; do
+        python3 /app/update_sapmi_news_board.py || true;
+        sleep 300;
+      done &
+      /app/start_server.sh
+      '

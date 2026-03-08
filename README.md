@@ -21,7 +21,7 @@ Lokal, lettvekts nyhetsfront for samiske/Sápmi-relaterte kilder.
 
 - Python 3.9+
 
-## Hurtigstart
+## Hurtigstart (uten Docker)
 
 ```bash
 git clone <repo-url>
@@ -35,6 +35,29 @@ python3 update_sapmi_news_board.py
 ```
 
 Åpne deretter: `http://127.0.0.1:8787`
+
+## Hurtigstart (Docker Compose)
+
+Krever Docker Desktop (eller Docker Engine + Compose plugin).
+
+```bash
+git clone <repo-url>
+cd sapmi-dal
+
+docker compose up -d --build
+```
+
+Dette gjør:
+- starter webserver på port `8787`
+- oppdaterer nyhetsdata automatisk hvert 5. minutt i containeren
+
+Åpne: `http://127.0.0.1:8787`
+
+Stoppe:
+
+```bash
+docker compose down
+```
 
 ## Mapper
 

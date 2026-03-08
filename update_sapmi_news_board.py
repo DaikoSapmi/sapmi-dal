@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-ROOT = Path('/Users/daiko/.openclaw/workspace/sami-news-board')
+ROOT = Path(__file__).resolve().parent / 'web'
 DATA_PATH = ROOT / 'data' / 'news.json'
 
 SOURCES = [
