@@ -60,6 +60,7 @@ docker compose up -d --build
 Dette gjør:
 - starter webserver på port `8787`
 - oppdaterer nyhetsdata automatisk hvert 5. minutt i containeren
+- **trenger ikke ekstern cron-jobb**
 
 Åpne: `http://127.0.0.1:8787`
 
@@ -68,6 +69,18 @@ Stoppe:
 ```bash
 docker compose down
 ```
+
+## Oppdateringsmodell (viktig)
+
+Det finnes to måter å kjøre prosjektet på:
+
+1. **Docker Compose (anbefalt)**
+   - Auto-oppdatering er innebygd (hvert 5. minutt)
+   - Ingen ekstra scheduler nødvendig
+
+2. **Uten Docker (python + lokal webserver)**
+   - Du må selv trigge `python3 update_sapmi_news_board.py`
+   - For automatisk oppdatering: sett opp cron/launchd/systemd på vertsmaskinen
 
 ## Mapper
 
