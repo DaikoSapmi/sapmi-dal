@@ -2,9 +2,15 @@
 
 Lokal, lettvekts nyhetsfront for samiske/Sápmi-relaterte kilder.
 
-## Skjermbilde
+## Skjermbilder
+
+### Desktop
 
 ![Sápmi dál – desktop](docs/screenshots/sapmi-dal-desktop.jpg)
+
+### Mobil
+
+![Sápmi dál – mobil](docs/screenshots/sapmi-dal-mobile.jpg)
 
 ## Hva den gjør
 
