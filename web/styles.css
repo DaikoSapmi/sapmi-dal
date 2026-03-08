@@ -18,7 +18,8 @@ header {
   background: #fffdf9; border-bottom: 2px solid var(--ink);
   padding: 6px 14px 8px;
 }
-.settings-btn{position:absolute;right:10px;top:8px;border:1px solid var(--line);background:#fff;padding:4px 8px;border-radius:6px;cursor:pointer}
+.updated-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.settings-btn{border:1px solid var(--line);background:#fff;padding:2px 8px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1.2}
 .settings-panel{position:fixed;right:12px;top:52px;width:min(420px,92vw);max-height:80vh;overflow:auto;background:#fff;border:1px solid #bbb;box-shadow:0 8px 24px #00000026;padding:10px;z-index:30}
 .settings-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 .settings-close{border:0;background:transparent;font-size:18px;cursor:pointer}
